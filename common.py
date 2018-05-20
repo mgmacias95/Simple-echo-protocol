@@ -35,7 +35,7 @@ class Handler(asyncio.Protocol):
         """
         Increases the message ID counter
         """
-        self.counter += 1
+        self.counter = (self.counter + 1) % (2 ** 32)
         return self.counter
 
 
