@@ -1,0 +1,224 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+
+		<title>Distributing your app like a pro with asyncio.</title>
+        <meta name="author" content="Marta Gómez">
+
+        <!-- Bootstrap -->
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
+
+		<link rel="stylesheet" href="css/reveal.css">
+		<link rel="stylesheet" href="css/theme/black.css">
+
+		<!-- Theme used for syntax highlighting of code -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+        <!-- Font awesome -->
+        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css" integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp" crossorigin="anonymous">
+
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+	</head>
+	<body>
+		<div class="reveal">
+			<div class="slides">
+				<section>
+                    <h1>Distributing your app like a pro</h1>
+                    <h3>Marta Gómez</h3>
+
+                    <p>
+                        <div class="container">
+                            <div class="row">
+                                <div class="col-sm">
+                                    <a href="https://twitter.com/Mrs_DarkDonado"><i class="fab fa-twitter"></i> Mrs_DarkDonado</a>
+                                </div>
+                                <div class="col-sm">
+                                    <a href="https://github.com/mgmacias95/"><i class="fab fa-github"></i> mgmacias95</a>
+                                </div>
+                            </div>
+                        </div>
+                    </p>
+                </section>
+
+                <section>
+                    <h2>About me</h2>
+                    <ul>
+                        <li>Happy developer at <a href="https://www.wazuh.com/">Wazuh</a>.</li>
+                        <li>Organizer at <a href="https://geekandtechgirls.github.io/">Geek & Tech Girls</a>.</li>
+                        <li>Python <i class="fas fa-heart">.</i></li>
+                    </ul>
+                </section>
+
+                <section>
+                    <section>
+                        <h2>Introducing the app</h2>
+                        <p> The app has two main elements:</p>
+                        <ul>
+                            <li><b>Wazuh Manager</b>: analyzes and reports events from agents.</li>
+                            <li><b>Wazuh Agent</b>: Recollects events (such as logins, attacks, etc) and sends them to the manager. </li>
+                    </section>
+                    <section>
+                        <div class="container">
+                            <div class="row justify-content-start">
+                                <div class="col-4 fragment" data-fragment-index="3">
+                                    <i class="fas fa-desktop"></i>
+                                </div>
+                                <div class="col-4 fragment" data-fragment-index="9">
+                                    <i class="fas fa-desktop"></i>
+                                </div>
+                            </div>
+                            <div class="row justify-content-center">
+                                <div class="col-4 fragment" data-fragment-index="5">
+                                    <i class="fas fa-desktop"></i>
+                                </div>
+                                <div class="col-4 fragment" data-fragment-index="10">
+                                    <i class="fas fa-desktop"></i>
+                                </div>
+                            </div>
+                            <div class="row justify-content-end">
+                                <div class="col-4 fragment highlight-red" data-fragment-index="11">
+                                    <i class="fas fa-server"></i>
+                                </div>
+                                <div class="col-4 fragment" data-fragment-index="6">
+                                    <i class="fas fa-desktop"></i>
+                                </div>
+                            </div>
+                            <div class="row justify-content-around">
+                                <div class="col-4 fragment" data-fragment-index="2">
+                                    <i class="fas fa-desktop"></i>
+                                </div>
+                                <div class="col-4 fragment" data-fragment-index="7">
+                                    <i class="fas fa-desktop"></i>
+                                </div>
+                            </div>
+                            <div class="row justify-content-between">
+                                <div class="col-4 fragment" data-fragment-index="4">
+                                    <i class="fas fa-desktop"></i>
+                                </div>
+                                <div class="col-4 fragment" data-fragment-index="1">
+                                    <i class="fas fa-desktop"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    <section>
+                        <h3>Scalability problem</h3>
+                        <ul>
+                            <li>The more agents we connect to the manager, the more load of events it has to analyze.</li>
+                            <li>There will be a moment when we won't be able to connect more agents.</li>
+                        </ul>
+                    </section>
+                    <section>
+                        <h3>High availability</h3>
+                        <ul>
+                            <li>Protection against outages and downtime.</li>
+                            <li>Service / Hardware failure.</li>
+                        </ul>
+                    </section>
+                </section>
+                <section>
+                    <section>
+                        <h2>Distributing the app</h2>
+                        <ul>
+                            <li>Network topology.</li>
+                            <li>Communication protocol.</li>
+                            <li>File integrity.</li>
+                            <li>Performance.</li>
+                        </ul>
+                    </section>
+                    <section>
+                        <h3>Network topology</h3>
+                        <a href="https://commons.wikimedia.org/wiki/File:NetworkTopologies.png"> <img src="https://upload.wikimedia.org/wikipedia/commons/9/96/NetworkTopologies.png" /></a>
+                        <ul>
+                            <li>Defines how nodes connect with each other.</li>
+                            <li>The more connections, the more time it will take the cluster to synchronize.</li>
+                            <li>We chose a network topology with hierarchy: we have <i>master</i> and <i>client</i> nodes.</li>
+                        </ul>
+                    </section>
+                    <section>
+                        <h3>Communication protocol</h3>
+                        <ul>
+                            <li>Defines how nodes communicate with each other.</li>
+                            <li>Asynchronous protocols: always reply when receiving the message. Don't wait for a result.</li>
+                        </ul>
+                        <img src="images/async.png" />
+                    </section>
+                    <section>
+                        <h3>File integrity</h3>
+                        <img src="images/file_integrity.png" />
+                    </section>
+                    <section>
+                        <h3>Performance</h3>
+                        <ul>
+                            <li>The server must be always available to process requests from any node.</li>
+                            <li>Use threads to process high load requests.</li>
+                            <li>Take advantage of the asynchronous magic.</li>
+                            <li>Use profilers to know your bottlenecks.</li>
+                        </ul>
+                    </section>
+                </section>
+                <section>
+                    <section>
+                        <h2>Asyncio</h2>
+                        <ul>
+                            <li>Python 3.4 > module to program asynchronously.</li>
+                            <li>It has a submodule called <i>Protocol</i> which we can inherit from.</li>
+                            <li>It also has asynchronous <i>Coroutines</i> or <i>Tasks</i>.</li>
+                        </ul>
+                    </section>
+                    <section data-background="images/repository.png">
+                    </section>
+                    <section>
+                        <h3>File structure</h3>
+                        <ul>
+                            <li><b>Common</b>: Defines common methods for both server and clients (send, build, parse, common requests...).</li>
+                            <li><b>Server</b>: Defines server's behaviour.</li>
+                            <li><b>Client</b>: Defines client's behaviour.</li>
+                        </ul>
+                    </section>
+                    <section>
+                        <h3>Message structure</h3>
+                        <ul>
+                            <li>Header (18 bytes):</li>
+                            <ul>
+                                <li>Message size (4 bytes).</li>
+                                <li>Message ID/counter (4 bytes).</li>
+                                <li>Protocol command (10 bytes).</li>
+                            </ul>
+                            <li>Payload.</li>
+                        </ul>
+                    </section>
+                </section>
+                <section data-background="https://media.giphy.com/media/lD76yTC5zxZPG/giphy.gif">
+                </section>
+			</div>
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+			// More info about config & dependencies:
+			// - https://github.com/hakimel/reveal.js#configuration
+			// - https://github.com/hakimel/reveal.js#dependencies
+			Reveal.initialize({
+				dependencies: [
+					{ src: 'plugin/markdown/marked.js' },
+					{ src: 'plugin/markdown/markdown.js' },
+					{ src: 'plugin/notes/notes.js', async: true },
+					{ src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } }
+				]
+			});
+		</script>
+	</body>
+</html>
