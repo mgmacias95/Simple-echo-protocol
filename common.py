@@ -20,6 +20,8 @@ class Handler(asyncio.Protocol):
         self.header_len = self.cmd_len + 8 # 4 bytes of counter and 4 bytes of message size
         # defines header format
         self.header_format = '!2I{}s'.format(self.cmd_len)
+        # stores received data
+        self.in_buffer = b''
 
 
     def push(self, message):
@@ -58,29 +60,33 @@ class Handler(asyncio.Protocol):
         return struct.pack(self.header_format, len(data), counter, command.encode()) + data.encode()
 
 
-    def msg_parse(self, message):
+    def msg_parse(self):
         """
         Parses an incoming message
 
-        :param message: received message
         :return: command, counter and payload
         """
-        if message:
-            msg_size, msg_counter, command = struct.unpack(self.header_format, message[:self.header_len])
-            payload = message[self.header_len:self.header_len+msg_size]
+        if self.in_buffer:
+            msg_size, msg_counter, command = struct.unpack(self.header_format, self.in_buffer[:self.header_len])
+            payload = self.in_buffer[self.header_len:self.header_len+msg_size]
             return command.decode().split(' ')[0], msg_size+self.header_len, msg_counter, payload.decode()
         else:
             return None
 
 
-    def get_messages(self, buffer):
-        parsed = self.msg_parse(buffer)
+    def get_messages(self):
+        parsed = self.msg_parse()
 
         while parsed:
             command, size, counter, payload = parsed
-            buffer = buffer[size:]
-            yield command, counter, payload
-            parsed = self.msg_parse(buffer)
+            logging.debug("Received message: {} / {}".format(len(payload), size - self.header_len))
+            if len(payload) == size - self.header_len:
+                # the message was correctly received
+                self.in_buffer = self.in_buffer[size:]
+                yield command, counter, payload
+            else:
+                break
+            parsed = self.msg_parse()
 
 
     def send_request(self, command, data):
@@ -102,8 +108,8 @@ class Handler(asyncio.Protocol):
 
         :param message: data received
         """
-        for command, counter, payload in self.get_messages(message):
-
+        self.in_buffer += message
+        for command, counter, payload in self.get_messages():
             if counter in self.box:
                 self.process_response(command, payload)
             else:
