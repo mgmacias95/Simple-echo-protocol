@@ -99,18 +99,19 @@ try:
         try:
             coro = loop.create_connection(lambda: EchoClientProtocol(loop, args.name), '127.0.0.1', 8888)
             _, client_obj = loop.run_until_complete(coro)
-            break
         except ConnectionRefusedError:
             logging.error("Could not connect to server. Trying again in 10 seconds.")
             time.sleep(10)
+            break
 
-    try:
-        loop.run_until_complete(client_obj.client_echo())
-        loop.run_forever()
-    except asyncio.CancelledError:
-        logging.debug("Cancelled task.")
+        try:
+            loop.run_until_complete(client_obj.client_echo())
+            loop.run_forever()
+        except asyncio.CancelledError:
+            logging.debug("Lost connection with server. Reconnecting in 10 seconds.")
+            time.sleep(10)
+
+    loop.close()
 
 except KeyboardInterrupt:
     logging.info("Closing connection.")
-
-loop.close()
