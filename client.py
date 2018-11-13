@@ -29,7 +29,7 @@ class EchoClientProtocol(common.Handler):
         :param transport: socket to write data on
         """
         self.transport = transport
-        self.send_request(command='hello', data=self.name)
+        asyncio.gather(self.send_request(command='hello', data=self.name))
         logging.info('Data sent: {!r}'.format('Hello world!'))
 
 
@@ -57,9 +57,9 @@ class EchoClientProtocol(common.Handler):
         :return:
         """
         if command == 'ok-m':
-            logging.info("Sucessful response from master: {}".format(payload))
+            return "Sucessful response from master: {}".format(payload)
         else:
-            super().process_response(command, payload)
+            return super().process_response(command, payload)
 
 
     def process_request(self, command, data):
@@ -83,7 +83,8 @@ class EchoClientProtocol(common.Handler):
     @asyncio.coroutine
     async def client_echo(self):
         while not self.stop_event.is_set():
-            self.send_request('echo-c','hello from client')
+            result = await self.send_request('echo-c','hello from client')
+            logging.info(result)
             await asyncio.sleep(3)
 
 

@@ -4,6 +4,25 @@ import random
 import struct
 
 
+class Response:
+    """
+    Defines and stores a response from a request
+    """
+    def __init__(self):
+        # Event object which will be set when the response is received
+        self.received_response = asyncio.Event()
+        # Response content
+        self.content = None
+
+    async def read(self):
+        await self.received_response.wait()
+        return self.content
+
+    def write(self, content):
+        self.content = content
+        self.received_response.set()
+
+
 class Handler(asyncio.Protocol):
     """
     Defines common methods for echo clients and servers
@@ -13,7 +32,7 @@ class Handler(asyncio.Protocol):
         # The counter is used to identify each message. If an incoming request has a known ID, it is processed as a response
         self.counter = random.SystemRandom().randint(0, 2 ** 32 - 1)
         # The box stores all sent messages IDs
-        self.box = set()
+        self.box = {}
         # defines command length
         self.cmd_len = 10
         # defines header length
@@ -89,7 +108,7 @@ class Handler(asyncio.Protocol):
             parsed = self.msg_parse()
 
 
-    def send_request(self, command, data):
+    async def send_request(self, command, data):
         """
         Sends a request to peer
 
@@ -97,9 +116,12 @@ class Handler(asyncio.Protocol):
         :param data: data to send
         :return: whether sending was successful or not
         """
+        response = Response()
         msg_counter = self.next_counter()
-        self.box.add(msg_counter)
+        self.box[msg_counter] = response
         self.push(self.msg_build(command, msg_counter, data))
+        response_data = await response.read()
+        return response_data
 
 
     def data_received(self, message):
@@ -111,7 +133,7 @@ class Handler(asyncio.Protocol):
         self.in_buffer += message
         for command, counter, payload in self.get_messages():
             if counter in self.box:
-                self.process_response(command, payload)
+                self.box[counter].write(self.process_response(command, payload))
             else:
                 self.dispatch(command, counter, payload)
 
@@ -156,11 +178,11 @@ class Handler(asyncio.Protocol):
         :return:
         """
         if command == 'ok':
-            logging.info("Sucessful response: {}".format(payload))
+            return "Sucessful response: {}".format(payload)
         elif command == 'err':
-            self.process_error_from_peer(payload)
+            return self.process_error_from_peer(payload)
         else:
-            logging.error("Unkown response command received: '{}'".format(command))
+            return "Unkown response command received: '{}'".format(command)
 
 
     def echo(self, data):
