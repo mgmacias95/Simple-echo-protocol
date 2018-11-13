@@ -9,7 +9,7 @@ class EchoClientProtocol(common.Handler):
     Defines a echo client protocol
     """
 
-    def __init__(self, loop, name):
+    def __init__(self, loop, on_con_lost, name):
         """
         Class constructor
 
@@ -19,8 +19,7 @@ class EchoClientProtocol(common.Handler):
         super().__init__()
         self.loop = loop
         self.name = name
-        self.stop_event = asyncio.Event(loop=self.loop)
-
+        self.on_con_lost = on_con_lost
 
     def connection_made(self, transport):
         """
@@ -42,7 +41,7 @@ class EchoClientProtocol(common.Handler):
         """
         logging.info('The server closed the connection')
         logging.info('Stopping tasks')
-        self.stop_event.set()
+        self.on_con_lost.set_result(True)
         for task in asyncio.Task.all_tasks():
             task.cancel()
         logging.info('Stop the event loop')
@@ -82,37 +81,44 @@ class EchoClientProtocol(common.Handler):
 
     @asyncio.coroutine
     async def client_echo(self):
-        while not self.stop_event.is_set():
+        while not self.on_con_lost.done():
             result = await self.send_request('echo-c','hello from client')
             logging.info(result)
             await asyncio.sleep(3)
 
 
-try:
+async def main():
     logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', '--name', help="Client's name", type=str, dest='name', required=True)
     args = parser.parse_args()
 
-    loop = asyncio.get_event_loop()
+    # Get a reference to the event loop as we plan to use
+    # low-level APIs.
+    loop = asyncio.get_running_loop()
+    on_con_lost = loop.create_future()
 
     while True:
         try:
-            coro = loop.create_connection(lambda: EchoClientProtocol(loop, args.name), '127.0.0.1', 8888)
-            _, client_obj = loop.run_until_complete(coro)
+            transport, protocol = await loop.create_connection(lambda: EchoClientProtocol(loop, on_con_lost, args.name), '127.0.0.1', 8888)
+            break
         except ConnectionRefusedError:
             logging.error("Could not connect to server. Trying again in 10 seconds.")
-            time.sleep(10)
-            continue
+            await asyncio.sleep(10)
 
+    # Wait until the protocol signals that the connection
+    # is lost and close the transport.
+    try:
+        await asyncio.gather(on_con_lost, protocol.client_echo())
+    finally:
+        transport.close()
+
+try:
+    while True:
         try:
-            loop.run_until_complete(client_obj.client_echo())
-            loop.run_forever()
+            asyncio.run(main())
         except asyncio.CancelledError:
-            logging.debug("Lost connection with server. Reconnecting in 10 seconds.")
+            logging.info("Connection with server has been lost. Reconnecting in 10 seconds.")
             time.sleep(10)
-
-    loop.close()
-
 except KeyboardInterrupt:
-    logging.info("Closing connection.")
+    logging.info("SIGINT received. Bye!")

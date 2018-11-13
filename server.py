@@ -16,8 +16,10 @@ class EchoServerHandler(common.Handler):
         :param transport: socket to write data on
         """
         peername = transport.get_extra_info('peername')
+        logging.info("SSL cipher: {}".format(transport.get_extra_info('cipher')))
         logging.info('Connection from {}'.format(peername))
         self.transport = transport
+        self.name = None
 
 
     def process_request(self, command, data):
@@ -79,8 +81,11 @@ class EchoServerHandler(common.Handler):
         :param exc:
         :return:
         """
-        logging.info("The client '{}' closed the connection".format(self.name))
-        del clients[self.name]
+        if self.name:
+            logging.info("The client '{}' closed the connection".format(self.name))
+            del clients[self.name]
+        else:
+            logging.error("Error during handshake with incoming client.")
 
 
 @asyncio.coroutine
@@ -92,23 +97,21 @@ async def server_echo():
         await asyncio.sleep(3)
 
 
-logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
+async def main():
+    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
 
-loop = asyncio.get_event_loop()
-# Each client connection will create a new protocol instance
-coro = loop.create_server(EchoServerHandler, '127.0.0.1', 8888)
-server = loop.run_until_complete(coro)
+    # Get a reference to the event loop as we plan to use
+    # low-level APIs.
+    loop = asyncio.get_running_loop()
 
-# Serve requests until Ctrl+C is pressed
-logging.info('Serving on {}'.format(server.sockets[0].getsockname()))
+    server = await loop.create_server(lambda: EchoServerHandler(), '127.0.0.1', 8888)
+    logging.info('Serving on {}'.format(server.sockets[0].getsockname()))
+
+    async with server:
+        # use asyncio.gather to run both tasks in parallel
+        await asyncio.gather(server.serve_forever(), server_echo())
 
 try:
-    loop.run_until_complete(server_echo())
-    loop.run_forever()
+    asyncio.run(main())
 except KeyboardInterrupt:
-    pass
-
-# Close the server
-server.close()
-loop.run_until_complete(server.wait_closed())
-loop.close()
+    logging.info("SIGINT received. Bye!")
