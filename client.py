@@ -103,7 +103,7 @@ try:
         except ConnectionRefusedError:
             logging.error("Could not connect to server. Trying again in 10 seconds.")
             time.sleep(10)
-            break
+            continue
 
         try:
             loop.run_until_complete(client_obj.client_echo())
