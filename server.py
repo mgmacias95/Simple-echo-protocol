@@ -67,9 +67,9 @@ class EchoServerHandler(common.Handler):
         :return:
         """
         if command == 'ok-c':
-            logging.info("Sucessful response from client: {}".format(payload))
+            return "Sucessful response from client: {}".format(payload)
         else:
-            super().process_response(command, payload)
+            return super().process_response(command, payload)
 
 
     def connection_lost(self, exc):
@@ -88,7 +88,7 @@ async def server_echo():
     while True:
         for client_name, client in clients.items():
             logging.debug("Sending echo to client {}".format(client_name))
-            client.send_request('echo-m','hello {} from server'.format(client_name))
+            logging.info(await client.send_request('echo-m','hello {} from server'.format(client_name)))
         await asyncio.sleep(3)
 
 
