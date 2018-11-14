@@ -2,7 +2,7 @@ import asyncio
 import logging
 import random
 import struct
-
+import io
 
 class Response:
     """
@@ -84,13 +84,18 @@ class Handler(asyncio.Protocol):
         self.in_msg = InBuffer()
 
 
-    def push(self, message):
+    async def push(self, message):
         """
         Sends a message to peer
 
         :param message: message to send
         """
-        self.transport.write(message)
+        if len(message) < 1000:
+            self.transport.write(message)
+        else:
+            with io.BytesIO(message) as m:
+                sent = await self.loop.sendfile(transport=self.transport, file=m, count=len(message))
+                logging.debug("File of {} bytes sent".format(sent))
 
 
     def next_counter(self):
@@ -163,7 +168,7 @@ class Handler(asyncio.Protocol):
         response = Response()
         msg_counter = self.next_counter()
         self.box[msg_counter] = response
-        self.push(self.msg_build(command, msg_counter, data))
+        await self.push(self.msg_build(command, msg_counter, data))
         response_data = await response.read()
         return response_data
 
@@ -179,10 +184,10 @@ class Handler(asyncio.Protocol):
             if counter in self.box:
                 self.box[counter].write(self.process_response(command, payload))
             else:
-                self.dispatch(command, counter, payload)
+                asyncio.gather(self.dispatch(command, counter, payload))
 
 
-    def dispatch(self, command, counter, payload):
+    async def dispatch(self, command, counter, payload):
         """
         Processes a received message and sends a response
 
@@ -196,7 +201,7 @@ class Handler(asyncio.Protocol):
             logging.error("Error processing request: {}".format(e))
             command, payload = 'err', str(e)
 
-        self.push(self.msg_build(command, counter, payload))
+        await self.push(self.msg_build(command, counter, payload))
 
 
     def process_request(self, command, data):
