@@ -6,9 +6,10 @@ class EchoServerHandler(common.Handler):
     """
     Defines echo server protocol
     """
-    def __init__(self, server):
+    def __init__(self, server, loop):
         super().__init__()
         self.server = server
+        self.loop = loop
 
     def connection_made(self, transport):
         """
@@ -107,7 +108,7 @@ class EchoServer:
         # low-level APIs.
         loop = asyncio.get_running_loop()
 
-        server = await loop.create_server(lambda: EchoServerHandler(server=self), '127.0.0.1', 8888)
+        server = await loop.create_server(lambda: EchoServerHandler(server=self, loop=loop), '0.0.0.0', 8888)
         logging.info('Serving on {}'.format(server.sockets[0].getsockname()))
 
         async with server:
