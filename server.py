@@ -2,12 +2,13 @@ import asyncio
 import common
 import logging
 
-clients = {}
-
 class EchoServerHandler(common.Handler):
     """
     Defines echo server protocol
     """
+    def __init__(self, server):
+        super().__init__()
+        self.server = server
 
     def connection_made(self, transport):
         """
@@ -49,13 +50,12 @@ class EchoServerHandler(common.Handler):
         :param data: client's data -> name
         :return: successful result
         """
-        global clients
-        if data in clients:
+        if data in self.server.clients:
             logging.error("Client {} already present".format(data))
             self.transport.close()
             return 'err', 'Client already present'
         else:
-            clients[data] = self
+            self.server.clients[data] = self
             self.name = data
             return 'ok', 'Client {} added'.format(data)
 
@@ -83,33 +83,43 @@ class EchoServerHandler(common.Handler):
         """
         if self.name:
             logging.info("The client '{}' closed the connection".format(self.name))
-            del clients[self.name]
+            del self.server.clients[self.name]
         else:
             logging.error("Error during handshake with incoming client.")
 
 
-@asyncio.coroutine
-async def server_echo():
-    while True:
-        for client_name, client in clients.items():
-            logging.debug("Sending echo to client {}".format(client_name))
-            logging.info(await client.send_request('echo-m','hello {} from server'.format(client_name)))
-        await asyncio.sleep(3)
+class EchoServer:
+    """
+    Defines an asynchronous echo server.
+    """
+    def __init__(self):
+        self.clients = {}
+
+    async def echo(self):
+        while True:
+            for client_name, client in self.clients.items():
+                logging.debug("Sending echo to client {}".format(client_name))
+                logging.info(await client.send_request('echo-m', 'hello {} from server'.format(client_name)))
+            await asyncio.sleep(3)
+
+    async def start(self):
+        # Get a reference to the event loop as we plan to use
+        # low-level APIs.
+        loop = asyncio.get_running_loop()
+
+        server = await loop.create_server(lambda: EchoServerHandler(server=self), '127.0.0.1', 8888)
+        logging.info('Serving on {}'.format(server.sockets[0].getsockname()))
+
+        async with server:
+            # use asyncio.gather to run both tasks in parallel
+            await asyncio.gather(server.serve_forever(), self.echo())
 
 
 async def main():
     logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
 
-    # Get a reference to the event loop as we plan to use
-    # low-level APIs.
-    loop = asyncio.get_running_loop()
-
-    server = await loop.create_server(lambda: EchoServerHandler(), '127.0.0.1', 8888)
-    logging.info('Serving on {}'.format(server.sockets[0].getsockname()))
-
-    async with server:
-        # use asyncio.gather to run both tasks in parallel
-        await asyncio.gather(server.serve_forever(), server_echo())
+    server = EchoServer()
+    await server.start()
 
 try:
     asyncio.run(main())
